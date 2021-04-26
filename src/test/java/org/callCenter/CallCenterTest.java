@@ -13,7 +13,7 @@ import java.util.stream.Stream;
 
 public class CallCenterTest {
 
-    static Stream<Arguments> argumentsForStatus() {
+    static Stream<Arguments> argumentsForCC() {
         return Stream.of(
                 Arguments.of("Wrong operators count = -1",-1,100, new AtomicBoolean(true)),
                 Arguments.of("Wrong serveTimeMax = 0",2,0, new AtomicBoolean(true)),
@@ -22,8 +22,8 @@ public class CallCenterTest {
                 );
     }
 
-    @ParameterizedTest()
-    @MethodSource("argumentsForStatus")
+    @ParameterizedTest(name="{0}")
+    @MethodSource("argumentsForCC")
     public void WrongCallCenterCreatingTest(String name, int operCount, int timeMax, AtomicBoolean stop) {
         Assertions.assertThrows(IllegalArgumentException.class, ()->new CallCenter(operCount,timeMax,stop));
     }

@@ -16,6 +16,11 @@ public class CallFinalizedHandler implements Runnable {
     private final AtomicBoolean stop;
 
     public CallFinalizedHandler(Queue<Operator> operatorsQueue, Queue<Future<Operator>> processedCall, AtomicBoolean stop) {
+        if(operatorsQueue==null || processedCall==null||stop==null)
+        {
+            LOG.error("Wrong arguments to create CallFinalizerHandler operatorsQueue=null or processedQueue=null or stop=null");
+            throw new IllegalArgumentException("Wrong arguments to create CallFinalizerHandler");
+        }
         this.operatorsQueue = operatorsQueue;
         this.processedCall = processedCall;
         this.stop = stop;
