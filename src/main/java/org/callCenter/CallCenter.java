@@ -25,15 +25,15 @@ public class CallCenter implements Runnable {
     private final Queue<Future<Operator>> processedCall;
     private final ExecutorService executors;
 
-    private final CallProcessorHandler callProccessor;
+    private final CallProcessorHandler callProcessor;
     private final CallFinalizedHandler callFinalizer;
     private Call incomingCall;
 
 
     public CallCenter(int operatorsCount, int serveCallTimeMAX, AtomicBoolean stop) {
-        if (operatorsCount < 1) {
-            LOG.error("Operators count can't be less then 1 (your count is {})", operatorsCount);
-            throw new IllegalArgumentException("Operators count can't be less then 1");
+        if ((operatorsCount < 1) || (serveCallTimeMAX<=0) || stop==null) {
+            LOG.error("Wrong arguments for CallCenter creating operatorCount={} serveMaxTime={} stop={}", operatorsCount,serveCallTimeMAX,stop);
+            throw new IllegalArgumentException("Wrong arguments for CallCenter creating");
         }
 
         this.stop = stop;
@@ -41,9 +41,9 @@ public class CallCenter implements Runnable {
         //init create OperatorsQueue
         operatorQueue = OperatorsQueueFactory.getOperatorsQueue(operatorsCount, serveCallTimeMAX);
         //init incomingQueue
-        incomingCallQueue = new ConcurrentLinkedQueue<Call>();
+        incomingCallQueue = new ConcurrentLinkedQueue<>();
         //init processedQueue
-        processedCall = new ConcurrentLinkedQueue<Future<Operator>>();
+        processedCall = new ConcurrentLinkedQueue<>();
         //init executorService
         ThreadFactory threadFactory = new ThreadFactoryBuilder()
                 .setNameFormat("CallCenterPool %d")
@@ -51,12 +51,12 @@ public class CallCenter implements Runnable {
         executors = Executors.newCachedThreadPool(threadFactory);
 
         //init CallProcessor service
-        callProccessor = new CallProcessorHandler(incomingCallQueue, operatorQueue, processedCall, executors, stop);
+        callProcessor = new CallProcessorHandler(incomingCallQueue, operatorQueue, processedCall, executors, stop);
         //init CallFinalizer service
         callFinalizer = new CallFinalizedHandler(operatorQueue, processedCall, stop);
 
         //start callProcessor in Thread
-        executors.execute(callProccessor);
+        executors.execute(callProcessor);
         //start callFinalizedHandler
         executors.execute(callFinalizer);
 
@@ -69,8 +69,8 @@ public class CallCenter implements Runnable {
             incomingCall = call;
         } else {
             //here must be queue because we can receive more then one call in one time
-            LOG.error("CANNOT TAKE CALL BECAUSE incomingCALL is not null");
-            throw new RuntimeException("BUSY INCOMING CALL");
+            LOG.error("CANNOT TAKE CALL BECAUSE incomingCALL is not null IncomingCallQueue size={} OperatorQueue size={} ProcessedQueue size={}", incomingCallQueue.size(), operatorQueue.size(), processedCall.size());
+            //throw new RuntimeException("BUSY INCOMING CALL");
         }
     }
 
@@ -81,31 +81,31 @@ public class CallCenter implements Runnable {
             while (!stop.get()) {
                 if (incomingCall != null) {
                     incomingCall.setPhonedToCallCenterTime(LocalDateTime.now());
-                    //new incoming call try to process Check for free operator
-                    Operator operator = null;
-                    operator = operatorQueue.poll();
-                    if (operator != null) {
+                    //new incoming call try to process. Check for free operator
+                    Operator operator = operatorQueue.poll();
+                    if (operator != null && incomingCall.getLock().tryLock()) {
+                        incomingCall.setStatus(Call.PROCESSING);
                         operator.setCall(incomingCall);
-                        LOG.info("Call (id={}) processed DIRECTLY by operator (id=)",incomingCall.getCallId(),operator.getOperatorId());
-                        //start processing
+                        LOG.info("Call (id={}) start to process DIRECTLY by operator (id={})", incomingCall.getCallId(), operator.getOperatorId());
+                        incomingCall.getLock().unlock();
                         Future<Operator> callProcessing = executors.submit(operator);
-                        //add to processedQueue
+                        // add future to processedQueue
                         if (!processedCall.offer(callProcessing)) {
                             LOG.error("An error occurred in CallCenter when we try to offer Future call to ProcessedCallQueue");
                         }
-                        incomingCall = null;
                     } else {
                         //transfer call throughout incomingCallQueue
+                        incomingCall.setStatus(Call.WAITING);
                         if (!incomingCallQueue.offer(incomingCall)) {
                             LOG.error("An error occurred in CallCenter when we try to offer call to incomingCallQueue");
                         }
-                        LOG.info("CallCenter receive Call id={} and put it into Queue",incomingCall.getCallId());
-                        incomingCall = null;
+                        LOG.info("CallCenter receive Call id={} and put it into Queue", incomingCall.getCallId());
                     }
+                    incomingCall = null;
                 }
             }
-        }finally {
-            if(!executors.isShutdown()){
+        } finally {
+            if (!executors.isShutdown()) {
                 List<Runnable> rejected = executors.shutdownNow();
                 LOG.info("Operators thread pool stopped with {} rejected task", rejected.size());
             }

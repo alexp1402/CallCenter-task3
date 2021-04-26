@@ -41,29 +41,28 @@ public class CallProcessorHandler implements Runnable {
         while (!stop.get()) {
 
             // 1. is there call in queue
-            Call call = null;
-
+            Call call;
             while ((call = callsQueue.poll()) == null) {
                 //wait
             }
             //2. is there "free" operator in queue
-            Operator operator = null;
+            Operator operator;
             while ((operator = operatorsQueue.poll()) == null) {
                 //wait
             }
+
             LOG.info("Operator (id={}) try to serve call(id={}) from Queue", operator.getOperatorId(), call.getCallId());
+            if(call.getStatus().compareAndSet(Call.STOPPED_BY_CLIENT,Call.STOPPED_BY_CLIENT)){
+
+            }
             //take inner call lock
             if (call.getLock().tryLock()) {
-                LOG.info("Operator id={} get call id={} lock", operator.getOperatorId(), call.getCallId());
-                //run and add to ProcessedQueue FutureCallProcessing
+                    call.setStatus(Call.PROCESSING);
+                    operator.setCall(call);
+                    call.getLock().unlock();
 
-
-                //!!! Ask if is there some one thing which can unlock and run safety in one time
-
-
-                operator.setCall(call);
-                call.getLock().unlock();
-                if (!processedCall.offer(executors.submit(operator))) {
+                Future<Operator> callProcessing = executors.submit(operator);
+                if (!processedCall.offer(callProcessing)) {
                     LOG.error("Can't add Future(processingCall) to ProcessedQueue callId={} operatorId={}",
                             call.getCallId(), operator.getOperatorId());
                 }

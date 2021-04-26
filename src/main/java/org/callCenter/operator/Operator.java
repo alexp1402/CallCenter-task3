@@ -13,13 +13,7 @@ public class Operator implements Callable<Operator> {
 
     private static final Logger LOG = LoggerFactory.getLogger(Operator.class);
     private final int serveCallTimeSeed;
-
     private Call call;
-
-    //to dell
-//    Queue<Operator> operatorQueue;
-
-
     private final static AtomicInteger nextId = new AtomicInteger();
     private final int operatorId;
 
@@ -34,54 +28,62 @@ public class Operator implements Callable<Operator> {
         LOG.info("Operators id={} created", operatorId);
     }
 
-    public void serveCall() {
-        if (call == null) {
-            LOG.error("Error in Operator - Call is null You remember to set call for operator");
-        } else {
-            try {
-                //ask for Call lock
-                if (call.getLock().tryLock()) {
+    public boolean serveCall() {
 
-                    call.setStatus(Call.PROCESSING);
-                    LOG.info("Operator id={} begin to process call id={}", operatorId, call.getCallId());
+            if (call == null) {
+                LOG.error("Error in Operator - Call is null You remember to set call for operator");
+                throw new IllegalStateException("Error in Operator - Call is null You remember to set call for operator");
+            }
 
-                    //serve call for serveCallTime
-                    int serveTime = new Random().nextInt(serveCallTimeSeed);
-                    try {
-                        Thread.sleep(serveTime);
-                    } catch (InterruptedException e) {
-                        LOG.error("InterruptedError occurred in serveCall={} by Operator={} method", call.getCallId(), operatorId);
-                        e.printStackTrace();
-                    }
+            //if stopped by client return operator to queue
+            if (call.getStatus().compareAndSet(Call.STOPPED_BY_CLIENT, Call.STOPPED_BY_CLIENT)) {
+                return true;
+            }
 
-                    call.setEndCallTime(LocalDateTime.now());
-                    call.setStatus(Call.PROCESSED);
+            //ask for Call lock
+            if (call.getLock().tryLock()) {
 
-                    LOG.info("The call id={} is served by operator id={} for time={}", call.getCallId(), operatorId, serveTime);
-                } else {
-                    LOG.debug("Some one already use call We (operatorId={}) can't obtain call (callId={}) inner lock",operatorId,call.getCallId());
+                LOG.info("Operator id={} begin to process call id={}", operatorId, call.getCallId());
+                //serve call for serveCallTime
+                int serveTime = new Random().nextInt(serveCallTimeSeed);
+                try {
+                    Thread.sleep(serveTime);
+                } catch (InterruptedException e) {
+                    LOG.error("InterruptedError occurred in serveCall={} by Operator={} method", call.getCallId(), operatorId);
+                    e.printStackTrace();
                 }
-            } finally {
+
+                call.setEndCallTime(LocalDateTime.now());
+                call.setStatus(Call.PROCESSED);
                 call.getLock().unlock();
+
+                //LOG.info("The call id={} is served by operator id={} for time={}", call.getCallId(), operatorId, serveTime);
+                return true;
+            } else {
+                LOG.debug("Some one already use call We (operatorId={}) can't obtain call (callId={}) inner lock Call status={}", operatorId, call.getCallId(),call.getStatus());
+                return false;
+            }
+
+        }
+
+        @Override
+        public Operator call () throws Exception {
+            while (true) {
+                if (serveCall()) {
+                    return this;
+                }
             }
         }
-    }
 
-    @Override
-    public Operator call() throws Exception {
-        serveCall();
-        return this;
-    }
+        public int getOperatorId () {
+            return operatorId;
+        }
 
-    public int getOperatorId() {
-        return operatorId;
-    }
+        public void setCall (Call call){
+            this.call = call;
+        }
 
-    public void setCall(Call call) {
-        this.call = call;
+        public Call getCall () {
+            return call;
+        }
     }
-
-    public Call getCall() {
-        return call;
-    }
-}

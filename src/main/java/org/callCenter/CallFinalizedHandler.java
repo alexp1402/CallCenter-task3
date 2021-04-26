@@ -25,39 +25,35 @@ public class CallFinalizedHandler implements Runnable {
     @Override
     public void run() {
         Thread.currentThread().setName("CallFinThread");
-        while(!stop.get()){
+        while (!stop.get()) {
 
-            Future<Operator> futureCallProcessing = null;
-            futureCallProcessing = processedCall.poll();
+            Future<Operator> futureCallProcessing = processedCall.poll();
             //is there some callFutureProcessing
 
-            if(futureCallProcessing!=null){
+            if (futureCallProcessing != null) {
                 //check if call already processed
-                if(futureCallProcessing.isDone()){
+                if (futureCallProcessing.isDone()) {
                     try {
-
                         Operator operator = futureCallProcessing.get();
-                        //return operator in operatorQueue
-                        if(!operatorsQueue.offer(operator)){
-                            LOG.error("Can't return operator to operatorQueue operatorId={}", operator.getOperatorId());
-                        }
                         //add call for served database in future
                         Call call = operator.getCall();
-                        LOG.info("Call (id={}) processed by operator (id={}) \n " +
-                                        "Call started at {} phoned to CallCenter at {} processed at {}",
-                                call.getCallId(),operator.getOperatorId(),
-                                call.getStartCallTime(), call.getPhonedToCallCenterTime(), call.getEndCallTime());
-                    } catch (InterruptedException e) {
-                        LOG.error("Error during getOperator from Future<Operators>");
-                        e.printStackTrace();
-                    } catch (ExecutionException e) {
+                        LOG.info("FINISHED Call (id={}) processed by operator (id={}) \n " +
+                                        "Call started at {} phoned to CallCenter at {} processed at {} Call status is={}",
+                                call.getCallId(), operator.getOperatorId(),
+                                call.getStartCallTime(), call.getPhonedToCallCenterTime(), call.getEndCallTime(), call.getStatus());
+                        //return operator in operatorQueue
+                        System.out.println("Operator serveCallId="+call.getCallId()+" return to queue OperatorId="+operator.getOperatorId());
+                        if (!operatorsQueue.offer(operator)) {
+                            LOG.error("Can't return operator to operatorQueue operatorId={}", operator.getOperatorId());
+                        }
+
+                    } catch (Exception e) {
                         LOG.error("Error during getOperator from Future<Operators>");
                         e.printStackTrace();
                     }
-
-                }else{
-                    //put it back to queue
-                    if(!processedCall.offer(futureCallProcessing)){
+                } else {
+                    //put it back to ProcessedQueue
+                    if (!processedCall.offer(futureCallProcessing)) {
                         LOG.error("Can't put back FutureCall in ProcessedCallQueue");
                     }
                 }

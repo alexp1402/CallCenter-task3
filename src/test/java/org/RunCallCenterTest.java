@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class CallCenterTest {
+public class RunCallCenterTest {
 
 
     @Test
