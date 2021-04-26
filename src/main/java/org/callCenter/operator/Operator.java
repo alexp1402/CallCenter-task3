@@ -49,6 +49,7 @@ public class Operator implements Callable<Operator> {
                 try {
                     Thread.sleep(serveTime);
                 } catch (InterruptedException e) {
+                    //when stop became true InterruptedException is (because stop forced)
                     LOG.error("InterruptedError occurred in serveCall={} by Operator={} method", call.getCallId(), operatorId);
                     e.printStackTrace();
                 }

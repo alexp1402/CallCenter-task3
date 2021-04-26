@@ -11,11 +11,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class CallProcessorHandler implements Runnable {
     private static final Logger LOG = LoggerFactory.getLogger(CallProcessorHandler.class);
-    private Queue<Call> callsQueue;
-    private Queue<Operator> operatorsQueue;
-    private Queue<Future<Operator>> processedCall;
-    private AtomicBoolean stop;
-    private ExecutorService executors;
+    private final Queue<Call> callsQueue;
+    private final Queue<Operator> operatorsQueue;
+    private final Queue<Future<Operator>> processedCall;
+    private final AtomicBoolean stop;
+    private final ExecutorService executors;
 
     public CallProcessorHandler(Queue<Call> callsQueue, Queue<Operator> operatorsQueue,
                                 Queue<Future<Operator>> processedCall, ExecutorService executors,
@@ -45,28 +45,29 @@ public class CallProcessorHandler implements Runnable {
             while ((call = callsQueue.poll()) == null) {
                 //wait
             }
-            //2. is there "free" operator in queue
-            Operator operator;
-            while ((operator = operatorsQueue.poll()) == null) {
-                //wait
-            }
+            //if call.Status = STOPPED_BY_CLIENT simple drop it call and take another
+            if (!call.getStatus().compareAndSet(Call.STOPPED_BY_CLIENT,Call.STOPPED_BY_CLIENT)){
+                //2. is there "free" operator in queue
+                Operator operator;
+                while ((operator = operatorsQueue.poll()) == null) {
+                    //wait
+                }
 
-            LOG.info("Operator (id={}) try to serve call(id={}) from Queue", operator.getOperatorId(), call.getCallId());
-            if(call.getStatus().compareAndSet(Call.STOPPED_BY_CLIENT,Call.STOPPED_BY_CLIENT)){
+                LOG.info("Operator (id={}) try to serve call(id={}) from Queue", operator.getOperatorId(), call.getCallId());
 
-            }
-            //take inner call lock
-            if (call.getLock().tryLock()) {
+                //take inner call lock
+                if (call.getLock().tryLock()) {
                     call.setStatus(Call.PROCESSING);
                     operator.setCall(call);
                     call.getLock().unlock();
 
-                Future<Operator> callProcessing = executors.submit(operator);
-                if (!processedCall.offer(callProcessing)) {
-                    LOG.error("Can't add Future(processingCall) to ProcessedQueue callId={} operatorId={}",
-                            call.getCallId(), operator.getOperatorId());
-                }
+                    Future<Operator> callProcessing = executors.submit(operator);
+                    if (!processedCall.offer(callProcessing)) {
+                        LOG.error("Can't add Future(processingCall) to ProcessedQueue callId={} operatorId={}",
+                                call.getCallId(), operator.getOperatorId());
+                    }
 
+                }
             }
         }
     }

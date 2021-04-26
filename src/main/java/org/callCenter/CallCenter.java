@@ -69,7 +69,7 @@ public class CallCenter implements Runnable {
             incomingCall = call;
         } else {
             //here must be queue because we can receive more then one call in one time
-            LOG.error("CANNOT TAKE CALL BECAUSE incomingCALL is not null IncomingCallQueue size={} OperatorQueue size={} ProcessedQueue size={}", incomingCallQueue.size(), operatorQueue.size(), processedCall.size());
+            LOG.error("CANNOT TAKE CALL (id={}) BECAUSE incomingCALL is not null IncomingCallQueue size={} OperatorQueue size={} ProcessedQueue size={}", call.getCallId(), incomingCallQueue.size(), operatorQueue.size(), processedCall.size());
             //throw new RuntimeException("BUSY INCOMING CALL");
         }
     }

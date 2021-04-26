@@ -6,15 +6,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Queue;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class CallFinalizedHandler implements Runnable {
     private static final Logger LOG = LoggerFactory.getLogger(CallFinalizedHandler.class);
-    private Queue<Operator> operatorsQueue;
-    private Queue<Future<Operator>> processedCall;
-    private AtomicBoolean stop;
+    private final Queue<Operator> operatorsQueue;
+    private final Queue<Future<Operator>> processedCall;
+    private final AtomicBoolean stop;
 
     public CallFinalizedHandler(Queue<Operator> operatorsQueue, Queue<Future<Operator>> processedCall, AtomicBoolean stop) {
         this.operatorsQueue = operatorsQueue;

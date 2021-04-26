@@ -7,8 +7,6 @@ import org.junit.jupiter.api.Test;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class RunCallCenterTest {
-
-
     @Test
     public void runCallCenter() throws InterruptedException {
         AtomicBoolean stop = new AtomicBoolean(false);
@@ -21,8 +19,9 @@ public class RunCallCenterTest {
         ClientLading clients = new ClientLading(2,center,stop);
         new Thread(clients).start();
 
-        while(true){
-            Thread.sleep(2000);
+        while(true) {
+            Thread.sleep(20000);
         }
+       //stop.set(true);
     }
 }
